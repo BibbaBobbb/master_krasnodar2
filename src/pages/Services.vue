@@ -121,7 +121,7 @@ export default {
 
 <style scoped>
 .page {
-  padding: 20px 0;
+  padding: 8px 0 20px; /* подняли контент выше */
 }
 .app-form {
   max-width: 640px;
@@ -129,7 +129,9 @@ export default {
 }
 .form-title {
   text-align: center;
-  margin: 0 0 8px;
+  font-size: 40px;       /* крупнее шрифт заголовка */
+  line-height: 1.1;
+  margin: -12px 0 12px;  /* сильно подняли вверх */
 }
 .label {
   display: block;
