@@ -1,0 +1,145 @@
+<template>
+  <section class="page">
+    <div class="app-form">
+      <h2 class="form-title">Оставить заявку</h2>
+
+      <label class="label" for="name">Имя</label>
+      <input
+        id="name"
+        v-model.trim="name"
+        class="input"
+        type="text"
+        maxlength="10"
+        @input="onNameInput"
+        placeholder="Ваше имя"
+      />
+
+      <label class="label" for="phone">Телефон</label>
+      <input
+        id="phone"
+        v-model.trim="phone"
+        class="input"
+        type="tel"
+        inputmode="tel"
+        maxlength="12"
+        @input="onPhoneInput"
+        placeholder="+7 (___) ___-__-__"
+      />
+
+      <label class="label" for="text">Что у Вас сломалось?</label>
+      <textarea
+        id="text"
+        v-model.trim="text"
+        class="textarea"
+        rows="6"
+        placeholder="Что у Вас сломалось?"
+      ></textarea>
+
+      <button class="submit" type="button" @click="submitApplication">Отправить</button>
+    </div>
+  </section>
+</template>
+
+<script>
+export default {
+  name: 'ServicesPage',
+  data() {
+    return {
+      name: '',
+      phone: '',
+      text: '',
+      sending: false,
+    };
+  },
+  methods: {
+    onNameInput() {
+      // Разрешаем только буквы (RU/EN), максимум 10
+      const onlyLetters = (this.name || '').replace(/[^A-Za-zА-Яа-яЁё]/g, '');
+      this.name = onlyLetters.slice(0, 10);
+    },
+    onPhoneInput() {
+      const raw = (this.phone || '').replace(/\D/g, '');
+      if (!raw) { this.phone = ''; return; }
+      // Нормализуем: 8XXXXXXXXXX -> 7XXXXXXXXXX
+      let normalized = raw.startsWith('8') ? '7' + raw.slice(1) : raw;
+      // Если не начинается с 7 — добавляем 7 как код РФ
+      if (!normalized.startsWith('7')) normalized = '7' + normalized;
+      // Берём ровно 10 цифр после кода страны
+      const afterCode = normalized.slice(1, 11);
+      this.phone = '+7' + afterCode;
+    },
+    async submitApplication() {
+      if (!this.name || !this.phone) {
+        alert('Попробуйте позже');
+        return;
+      }
+      if (this.sending) return;
+      this.sending = true;
+      try {
+        const resp = await fetch('http://127.0.0.1:8000/send-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: this.name, phone: this.phone, text: this.text }),
+        });
+        if (resp.ok) {
+          alert('Ваша заявка принята!');
+          this.name = '';
+          this.phone = '';
+          this.text = '';
+        } else {
+          alert('Попробуйте позже');
+        }
+      } catch (e) {
+        alert('Попробуйте позже');
+      } finally {
+        this.sending = false;
+      }
+    },
+  },
+};
+</script>
+
+<style scoped>
+.page {
+  padding: 20px 0;
+}
+.app-form {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.form-title {
+  text-align: center;
+  margin: 0 0 8px;
+}
+.label {
+  display: block;
+  margin: 12px 0 6px;
+  font-weight: 600;
+}
+.input,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+}
+.textarea {
+  resize: vertical;
+}
+.submit {
+  margin-top: 14px;
+  background: #2c3e50;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+</style>
+
