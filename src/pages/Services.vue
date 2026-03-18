@@ -7,7 +7,7 @@
       <input
         id="name"
         v-model.trim="name"
-        class="input"
+        :class="['input', { invalid: !isNameValid }]"
         type="text"
         maxlength="10"
         @input="onNameInput"
@@ -18,7 +18,7 @@
       <input
         id="phone"
         v-model.trim="phone"
-        class="input"
+        :class="['input', { invalid: !isPhoneValid }]"
         type="tel"
         inputmode="tel"
         maxlength="12"
@@ -30,12 +30,20 @@
       <textarea
         id="text"
         v-model.trim="text"
-        class="textarea"
+        :class="['textarea', { invalid: !isTextValid }]"
         rows="6"
         placeholder="Что у Вас сломалось?"
       ></textarea>
 
-      <button class="submit" type="button" @click="submitApplication">Отправить</button>
+      <button
+        class="submit"
+        :class="{ invalid: !canSubmit }"
+        type="button"
+        :disabled="!canSubmit || sending"
+        @click="submitApplication"
+      >
+        Отправить
+      </button>
     </div>
   </section>
 </template>
@@ -50,6 +58,21 @@ export default {
       text: '',
       sending: false,
     };
+  },
+  computed: {
+    isNameValid() {
+      return typeof this.name === 'string' && this.name.length > 0 && this.name.length <= 10;
+    },
+    isPhoneValid() {
+      // Ожидаем формат +7XXXXXXXXXX (12 символов включая +)
+      return typeof this.phone === 'string' && /^\+7\d{10}$/.test(this.phone);
+    },
+    isTextValid() {
+      return typeof this.text === 'string' && this.text.trim().length > 0;
+    },
+    canSubmit() {
+      return this.isNameValid && this.isPhoneValid && this.isTextValid;
+    },
   },
   methods: {
     onNameInput() {
@@ -69,10 +92,7 @@ export default {
       this.phone = '+7' + afterCode;
     },
     async submitApplication() {
-      if (!this.name || !this.phone) {
-        alert('Попробуйте позже');
-        return;
-      }
+      if (!this.canSubmit) return;
       if (this.sending) return;
       this.sending = true;
       try {
@@ -136,6 +156,16 @@ export default {
   padding: 10px 16px;
   border-radius: 8px;
   cursor: pointer;
+}
+.submit.invalid,
+.submit:disabled {
+  background: #e74c3c;
+  cursor: not-allowed;
+}
+.input.invalid,
+.textarea.invalid {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.15);
 }
 .submit:disabled {
   opacity: 0.6;
