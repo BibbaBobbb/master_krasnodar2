@@ -109,6 +109,25 @@ export default {
     },
   },
   methods: {
+    async fetchReviews() {
+      try {
+        const resp = await fetch('/api/reviews');
+        const rows = await resp.json();
+        // Приводим created_at -> createdAt для совместимости с шаблоном
+        this.reviews = Array.isArray(rows)
+          ? rows.map(r => ({
+              id: r.id,
+              name: r.name,
+              text: r.text,
+              rating: r.rating,
+              createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+            }))
+          : [];
+      } catch (e) {
+        console.warn('Failed to load reviews from backend', e);
+        this.reviews = [];
+      }
+    },
     onFileChange(e) {
       const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
       this.selectedFile = file;
@@ -162,37 +181,19 @@ export default {
       // 1) Фильтр мата на клиенте
       if (this.containsProfanity(this.name) || this.containsProfanity(this.text)) {
         this.showKindnessWarning = true;
-        const badReview = {
-          name: this.name,
-          text: this.text,
-          rating: this.rating,
-          createdAt: new Date().toISOString(),
-        };
-        this.tryNotifyTelegram(badReview);
         this.hoverRating = 0;
         return;
       } else {
         this.showKindnessWarning = false;
       }
-      // 2) Читаем файл в base64 (если есть)
-      let imageDataUrl = '';
-      if (this.selectedFile) {
-        try {
-          imageDataUrl = await this.readFileAsDataUrl(this.selectedFile);
-        } catch (e) {
-          console.warn('Failed to read attached image, continue without image', e);
-        }
-      }
-      // 3) Правило публикации: публикуем только 4 и 5 звёзд; 1–3 — только в Telegram
-      const ratingNum = Number(this.rating);
-      if (ratingNum < 4) {
-        const reviewForTg = {
-          name: this.name,
-          text: this.text,
-          rating: this.rating,
-          createdAt: new Date().toISOString(),
-        };
-        this.tryNotifyTelegram(reviewForTg);
+      // 2) Отправляем отзыв в БД
+      try {
+        const resp = await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: this.name, text: this.text, rating: Number(this.rating) }),
+        });
+        if (!resp.ok) throw new Error('failed');
         // очистка формы
         this.rating = 0;
         this.hoverRating = 0;
@@ -200,52 +201,34 @@ export default {
         this.text = '';
         this.selectedFile = null;
         if (this.$refs.fileInput) this.$refs.fileInput.value = '';
+        // обновляем список из БД
+        await this.fetchReviews();
         alert('Спасибо за отзыв!');
-        return;
-      }
-      // 4) Публикуем локально (и сохраняем в localStorage)
-      const review = {
-        id: Date.now().toString(),
-        name: this.name,
-        text: this.text,
-        rating: this.rating,
-        imageDataUrl,
-        createdAt: new Date().toISOString(),
-      };
-      this.reviews.unshift(review);
-      try {
-        localStorage.setItem('reviews', JSON.stringify(this.reviews));
       } catch (e) {
-        console.warn('Persisting reviews to localStorage failed', e);
+        console.warn('Submit review to DB failed', e);
+        alert('Попробуйте позже');
       }
-      // очистка формы
-      this.rating = 0;
-      this.hoverRating = 0;
-      this.name = '';
-      this.text = '';
-      this.selectedFile = null;
-      if (this.$refs.fileInput) this.$refs.fileInput.value = '';
-      alert('Спасибо за отзыв!');
     },
   },
   created() {
-    // загружаем локальные отзывы
-    try {
-      const raw = localStorage.getItem('reviews');
-      this.reviews = raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      this.reviews = [];
-    }
+    // Загружаем отзывы из БД
+    this.fetchReviews();
   },
 };
 </script>
 
 <style scoped>
 .page {
-  padding: 20px;
+  padding: 8px 20px 20px; /* подняли контент выше */
   background: transparent;
   color: #fff;         /* белый шрифт под шапкой (форма/заголовки) */
   border-radius: 12px;
+}
+.page > h2 {
+  text-align: center;
+  font-size: 40px;      /* крупнее заголовок */
+  line-height: 1.1;
+  margin: -12px 0 12px; /* сильно подняли вверх */
 }
 .review-form { max-width: 640px; margin: 0 auto; }
 .label { display: block; margin: 12px 0 6px; font-weight: 600; }
@@ -287,6 +270,22 @@ export default {
 
 .reviews-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
 .select { width: auto; padding-right: 28px; }
+
+@media (max-width: 768px) {
+  .reviews-toolbar {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+  .reviews-toolbar .label.small {
+    display: none; /* скрываем подпись на мобиле */
+  }
+  .reviews-toolbar .select {
+    width: 100%;
+    max-width: none;
+  }
+}
 
 .warning {
   display: flex;

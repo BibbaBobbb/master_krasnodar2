@@ -96,7 +96,7 @@ export default {
       if (this.sending) return;
       this.sending = true;
       try {
-        const resp = await fetch('http://127.0.0.1:8000/send-order', {
+        const resp = await fetch('/api/send-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: this.name, phone: this.phone, text: this.text }),
