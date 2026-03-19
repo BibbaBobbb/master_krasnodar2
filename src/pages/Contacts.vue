@@ -1,5 +1,5 @@
 <template>
-  <section class="page contacts">
+  <section id="contacts" class="page contacts">
     <h2>Контакты</h2>
     <img :src="face" class="contact-photo" alt="Николай, частный мастер">
     <p class="center">
@@ -18,11 +18,12 @@
 </template>
 
 <script>
-import face from '@/assets/master_face.jpeg';
 export default {
   name: 'ContactsPage',
   data() {
-    return { face };
+    return {
+      face: require('@/assets/master_face.jpeg'),
+    };
   },
 };
 </script>
@@ -30,6 +31,12 @@ export default {
 <style scoped>
 .page {
   padding: 20px 0;
+}
+.page h2 {
+  text-align: center;
+  font-size: 44px;     /* сильно увеличили заголовок */
+  line-height: 1.1;
+  margin: -14px 0 12px; /* подняли выше */
 }
 .contact-photo {
   display: block;

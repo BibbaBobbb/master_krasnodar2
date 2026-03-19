@@ -1,5 +1,5 @@
 <template>
-  <section class="page">
+  <section id="reviews" class="page">
     <h2>Отзывы</h2>
 
     <form class="review-form" @submit.prevent="submitReview">
@@ -9,7 +9,7 @@
       </div>
 
       <label class="label">Ваша оценка:</label>
-      <div class="stars" @mouseleave="hoverRating = 0">
+      <div class="stars" :class="{ invalid: !(Number(rating) > 0) }" @mouseleave="hoverRating = 0">
         <button
           v-for="n in 5"
           :key="n"
@@ -24,13 +24,13 @@
       </div>
 
       <label class="label" for="name">Имя:</label>
-      <input id="name" v-model.trim="name" class="input" type="text" placeholder="Ваше имя" />
+      <input id="name" v-model.trim="name" :class="['input', { invalid: !(name && name.trim().length > 0) }]" type="text" placeholder="Ваше имя" />
 
       <label class="label" for="text">Отзыв:</label>
       <textarea
         id="text"
         v-model.trim="text"
-        class="textarea"
+        :class="['textarea', { invalid: !(text && text.trim().length > 0) }]"
         rows="6"
         placeholder="Здесь будет Ваш отзыв :)"
       ></textarea>
@@ -45,7 +45,7 @@
         @change="onFileChange"
       />
 
-      <button class="submit" type="submit" :disabled="!canSubmit">Отправить отзыв</button>
+      <button class="submit" :class="{ invalid: !canSubmit }" type="submit" :disabled="!canSubmit">Отправить отзыв</button>
     </form>
 
     <div v-if="reviews.length" class="review-list">
@@ -245,6 +245,32 @@ export default {
 }
 .submit:disabled { opacity: .6; cursor: not-allowed; }
 
+.submit.invalid,
+.submit:disabled {
+  background: #e74c3c;
+  cursor: not-allowed;
+}
+.input.invalid,
+.textarea.invalid,
+.stars.invalid {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 10px 2px rgba(231, 76, 60, 0.55);
+  animation: glowRed 1.6s ease-in-out infinite;
+  outline: none;
+  will-change: box-shadow;
+}
+.stars.invalid {
+  display: inline-flex;
+  border: 1px solid #e74c3c;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+@keyframes glowRed {
+  0%   { box-shadow: 0 0 4px 1px rgba(231,76,60,0.45); }
+  50%  { box-shadow: 0 0 14px 4px rgba(231,76,60,0.85); }
+  100% { box-shadow: 0 0 4px 1px rgba(231,76,60,0.45); }
+}
 .review-list { max-width: 760px; margin: 16px auto 0; }
 .list-title { text-align: center; margin: 0 0 6px; }
 .review {

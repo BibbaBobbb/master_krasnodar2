@@ -1,5 +1,5 @@
 <template>
-  <section class="page">
+  <section id="request" class="page">
     <div class="app-form">
       <h2 class="form-title">Оставить заявку</h2>
 

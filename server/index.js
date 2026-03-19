@@ -23,7 +23,7 @@ function ensureDataFiles() {
       JSON.stringify(
         [
           'хуй','хуе','хуя','пизд','бля','еба','ебл','ебу','сука','мраз','гандон',
-          'дерьмо','говн','мудак','с*ка','шлюх','пидор','нахер','нахуй', 'плохой'
+          'дерьмо','говн','мудак','с*ка','шлюх','пидор','нахер','нахуй',
         ],
         null,
         2
@@ -91,15 +91,6 @@ app.post('/api/reviews', async (req, res) => {
       `Нецензурный отзыв:\nИмя: ${name}\nОценка: ${rating}\nТекст: ${text}\nДата: ${new Date(createdAt).toLocaleString('ru-RU')}`;
     await notifyTelegramAdmin(msg);
     return res.status(422).json({ error: 'profanity', message: 'Будьте добрее!' });
-  }
-  const ratingNum = Number(rating);
-  // Правило публикации: публикуем только 4 и 5 звёзд; 1–3 звезды — только в Telegram
-  if (ratingNum < 4) {
-    const createdAt = new Date().toISOString();
-    const msg =
-      `Отзыв (не опубликован):\nИмя: ${name}\nОценка: ${rating}\nТекст: ${text}\nДата: ${new Date(createdAt).toLocaleString('ru-RU')}`;
-    await notifyTelegramAdmin(msg);
-    return res.status(202).json({ status: 'redirected', message: 'Спасибо за отзыв!' });
   }
   const review = {
     id: Date.now().toString(),

@@ -5,10 +5,10 @@
       <h1 class="hero-title">СантехЭлектро</h1>
       <nav>
         <!-- router-link заменяет обычные <a> -->
-        <router-link to="/">Услуги</router-link>
-        <router-link to="/services">Оставить заявку</router-link>
-        <router-link to="/reviews">Отзывы</router-link>
-        <router-link to="/contacts">Контакты</router-link>
+        <router-link to="/#services">Услуги</router-link>
+        <router-link to="/services#request">Оставить заявку</router-link>
+        <router-link to="/reviews#reviews">Отзывы</router-link>
+        <router-link to="/contacts#contacts">Контакты</router-link>
       </nav>
     </header>
 
@@ -31,6 +31,7 @@ export {};
 </script>
 
 <style>
+html { scroll-behavior: smooth; }
 /* 1. БАЗОВЫЕ НАСТРОЙКИ */
 body { 
     font-family: 'Segoe UI', Roboto, sans-serif; 
