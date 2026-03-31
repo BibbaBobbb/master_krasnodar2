@@ -4,7 +4,7 @@ import re
 import requests
 from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 import sqlite3
 from typing import List, Dict
 from datetime import datetime
@@ -162,12 +162,18 @@ with conn:
         )
         """
     )
+    # Миграция: добавляем колонку для картинки, если её ещё нет
+    try:
+        conn.execute("ALTER TABLE reviews ADD COLUMN image_data_url TEXT")
+    except sqlite3.OperationalError:
+        pass
 
 
 class ReviewIn(BaseModel):
     name: str
     text: str
     rating: int
+    image_data_url: str | None = Field(default=None, alias="imageDataUrl")
 
     @field_validator("name")
     @classmethod
@@ -202,8 +208,8 @@ async def create_review(review: ReviewIn, request: Request):
     created_at = datetime.utcnow().isoformat()
     with conn:
         conn.execute(
-            "INSERT INTO reviews (name, text, rating, created_at) VALUES (?, ?, ?, ?)",
-            (review.name, review.text, review.rating, created_at),
+            "INSERT INTO reviews (name, text, rating, created_at, image_data_url) VALUES (?, ?, ?, ?, ?)",
+            (review.name, review.text, review.rating, created_at, review.image_data_url),
         )
     # Уведомление в Telegram
     tg_text = f"Новый отзыв от {review.name}: {review.text}"
@@ -219,9 +225,13 @@ async def create_review(review: ReviewIn, request: Request):
 @app.get("/reviews")
 async def list_reviews():
     cur = conn.execute(
-        "SELECT id, name, text, rating, created_at FROM reviews ORDER BY datetime(created_at) DESC, id DESC"
+        "SELECT id, name, text, rating, created_at, image_data_url FROM reviews ORDER BY datetime(created_at) DESC, id DESC"
     )
-    rows = [dict(r) for r in cur.fetchall()]
+    rows = []
+    for r in cur.fetchall():
+        d = dict(r)
+        d["imageDataUrl"] = d.pop("image_data_url", None)
+        rows.append(d)
     return rows
 
 
@@ -241,3 +251,31 @@ async def delete_review_by_id(review_id: int, x_api_key: str | None = Header(def
     with conn:
         cur = conn.execute("DELETE FROM reviews WHERE id = ?", (review_id,))
     return {"deleted": cur.rowcount}
+
+
+# ---------------- Healthcheck ----------------
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+
+# ---------------- Duplicate /send-order for active app ----------------
+# В файле ранее app переопределяется, поэтому дублируем эндпоинт под актуальным app,
+# чтобы /send-order был доступен вместе с /reviews.
+@app.post("/send-order")
+async def send_to_tg_active(order: Order, request: Request):
+    check_rate_limit(request)
+    msg = (
+        f"🚀 Новая заявка!\n"
+        f"👤 Имя: {order.name}\n"
+        f"📞 Тел: {order.phone}\n"
+        f"💬 Сообщение: {order.text}"
+    )
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    try:
+        resp = requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": msg}, timeout=15)
+        if resp.status_code == 200:
+            return {"status": "success"}
+        return {"status": "error", "details": resp.text}
+    except Exception as e:
+        return {"status": "error", "details": str(e)}

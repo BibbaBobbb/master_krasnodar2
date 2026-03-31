@@ -121,6 +121,7 @@ export default {
               text: r.text,
               rating: r.rating,
               createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+              imageDataUrl: r.imageDataUrl || r.image_data_url || null,
             }))
           : [];
       } catch (e) {
@@ -132,12 +133,33 @@ export default {
       const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
       this.selectedFile = file;
     },
-    readFileAsDataUrl(file) {
+    // Сжатие изображения на клиенте до разумного размера
+    compressImage(file, { maxDim = 1600, quality = 0.72 } = {}) {
       return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = (err) => reject(err);
-        reader.readAsDataURL(file);
+        try {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const w = img.width;
+              const h = img.height;
+              const scale = Math.min(1, maxDim / Math.max(w, h));
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.round(w * scale);
+              canvas.height = Math.round(h * scale);
+              const ctx = canvas.getContext('2d', { alpha: false });
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', quality);
+              resolve(dataUrl);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          img.onerror = (e) => reject(e);
+          const url = URL.createObjectURL(file);
+          img.src = url;
+        } catch (e) {
+          reject(e);
+        }
       });
     },
     formatDate(iso) {
@@ -188,12 +210,32 @@ export default {
       }
       // 2) Отправляем отзыв в БД
       try {
+        // Если есть фото — читаем в base64 (data URL)
+        let imageDataUrl = null;
+        if (this.selectedFile) {
+          try {
+            imageDataUrl = await this.compressImage(this.selectedFile, { maxDim: 1600, quality: 0.72 });
+          } catch (e) {
+            console.warn('Failed to read image, continue without it', e);
+          }
+        }
         const resp = await fetch('/api/reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: this.name, text: this.text, rating: Number(this.rating) }),
+          body: JSON.stringify({ name: this.name, text: this.text, rating: Number(this.rating), imageDataUrl }),
         });
-        if (!resp.ok) throw new Error('failed');
+        if (!resp.ok) {
+          if (resp.status === 413) {
+            throw new Error('too_large');
+          }
+          if (resp.status === 429) {
+            throw new Error('rate_limited');
+          }
+          if (resp.status === 422) {
+            throw new Error('validation');
+          }
+          throw new Error('failed');
+        }
         // очистка формы
         this.rating = 0;
         this.hoverRating = 0;
@@ -206,7 +248,15 @@ export default {
         alert('Спасибо за отзыв!');
       } catch (e) {
         console.warn('Submit review to DB failed', e);
-        alert('Попробуйте позже');
+        if (e && e.message === 'too_large') {
+          alert('Фото слишком большое. Уменьшите фото и попробуйте снова.');
+        } else if (e && e.message === 'rate_limited') {
+          alert('Слишком частые отправки. Попробуйте через минуту.');
+        } else if (e && e.message === 'validation') {
+          alert('Проверьте: имя (только буквы и дефис), текст и оценку.');
+        } else {
+          alert('Попробуйте позже');
+        }
       }
     },
   },
