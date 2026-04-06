@@ -111,7 +111,7 @@ export default {
   methods: {
     async fetchReviews() {
       try {
-        const resp = await fetch('/api/reviews');
+        const resp = await fetch(`/api/reviews?t=${Date.now()}`, { cache: 'no-store' });
         const rows = await resp.json();
         // Приводим created_at -> createdAt для совместимости с шаблоном
         this.reviews = Array.isArray(rows)
@@ -124,6 +124,11 @@ export default {
               imageDataUrl: r.imageDataUrl || r.image_data_url || null,
             }))
           : [];
+        // После обновления списка — прокручиваем к нему (полезно на мобилке)
+        this.$nextTick(() => {
+          const el = document.querySelector('.review-list');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
       } catch (e) {
         console.warn('Failed to load reviews from backend', e);
         this.reviews = [];
