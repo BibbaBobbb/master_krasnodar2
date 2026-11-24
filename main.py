@@ -103,49 +103,6 @@ class Order(BaseModel):
         return phone
 
 
-@app.post("/send-order")
-async def send_to_tg(order: Order, request: Request):
-    check_rate_limit(request)
-    msg = (
-        f"🚀 Новая заявка!\n"
-        f"👤 Имя: {order.name}\n"
-        f"📞 Тел: {order.phone}\n"
-        f"💬 Сообщение: {order.text}"
-    )
-
-    # Важно: у Telegram API должен быть префикс /bot
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    resp = requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": msg}, timeout=15)
-
-    if resp.status_code == 200:
-        return {"status": "success"}
-    else:
-        return {"status": "error", "details": resp.text}
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="127.0.0.1", port=8000)
-import requests
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import sqlite3
-from typing import List
-from datetime import datetime
-
-app = FastAPI()
-
-# Максимально разрешающий CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Разрешить запросы с любых адресов
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # --------------- SQLite (Отзывы) ---------------
 DB_PATH = "reviews.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -259,11 +216,9 @@ async def health():
     return {"ok": True}
 
 
-# ---------------- Duplicate /send-order for active app ----------------
-# В файле ранее app переопределяется, поэтому дублируем эндпоинт под актуальным app,
-# чтобы /send-order был доступен вместе с /reviews.
+# ---------------- Заявки → Telegram ----------------
 @app.post("/send-order")
-async def send_to_tg_active(order: Order, request: Request):
+async def send_to_tg(order: Order, request: Request):
     check_rate_limit(request)
     msg = (
         f"🚀 Новая заявка!\n"
@@ -279,3 +234,9 @@ async def send_to_tg_active(order: Order, request: Request):
         return {"status": "error", "details": resp.text}
     except Exception as e:
         return {"status": "error", "details": str(e)}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=8000)
